@@ -138,18 +138,28 @@
         }, this);
     }
 
+    function overlaps(x,y){
+        playersGroup.getChildren().forEach(player => {
+            if (Math.sqrt(Math.pow(player.x - x, 2) + Math.pow(player.y - y,2)) < 75)
+                return true;
+        });
+        return false;
+    }
+
     function createPlayers(team) {
         for (let i = 1; i <= 6; i++) {
             img = team == "team1" ? "player1" : "player2"
             // 100 to 1250
-            x = Math.random() * (fieldInPixel.x_max - fieldInPixel.x_min) + fieldInPixel.x_min;
-            y = Math.random() * (fieldInPixel.y_max - fieldInPixel.y_min) + fieldInPixel.y_min;
+            do{
+                x = Math.random() * (fieldInPixel.x_max - fieldInPixel.x_min) + fieldInPixel.x_min;
+                y = Math.random() * (fieldInPixel.y_max - fieldInPixel.y_min) + fieldInPixel.y_min;
+            } while( overlaps(x,y) )
             const player = playersGroup.create(x, y, img).setInteractive();
             player.rotation = Math.random() * (2 * Math.PI);
             player.setCircle(16, 0, 0); // Set player as a circle
             player.team = team;
             player.playerNumber = i;
-            player.setScale(0.2);
+            player.setScale(0.3);
         }
     }
 
