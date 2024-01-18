@@ -28,17 +28,17 @@
     };
 
     let fieldInPixel = {
-        x_min : 100,
-        y_min : 100,
-        x_max : 1250,
-        y_max : 850
+        x_min : 95,
+        y_min : 95,
+        x_max : 1265,
+        y_max : 870
     }
 
     const game = new Phaser.Game(config);
     let line;
     let playersGroup;
+    let ball;
     let circleGraphics;
-    let ballGraphics;
     let lineGraphics;
 
     let myTeam;
@@ -68,27 +68,28 @@
         this.load.image('background', 'field.png');
         this.load.image('player1', 'robot1.png');
         this.load.image('player2', 'robot2.png');
+        this.load.image('ball', 'soccerBall.png');
+
     }
 
     function generateScene(scene, playersGroup){
 
         if (lineGraphics) lineGraphics.destroy();
         if (circleGraphics) circleGraphics.destroy();
-        if (ballGraphics) ballGraphics.destroy();
 
         createPlayers('team1');
         createPlayers('team2');
         
         lineGraphics = scene.add.graphics();
         circleGraphics = scene.add.graphics();
-        ballGraphics = scene.add.graphics();
-        ballGraphics.fillStyle(0xffffff);
         lineGraphics.lineStyle(2, 0xffffff);
 
         myTeam = playersGroup.getChildren().filter(player => player.team === 'team1');
         indexBH = Math.floor(Math.random() * 6)
 
-        ballGraphics.fillCircle(myTeam[indexBH].x+Math.cos(myTeam[indexBH].rotation)*25, myTeam[indexBH].y+Math.sin(myTeam[indexBH].rotation)*25, 15);
+        ball.x = myTeam[indexBH].x+Math.cos(myTeam[indexBH].rotation)*35
+        ball.y = myTeam[indexBH].y+Math.sin(myTeam[indexBH].rotation)*35
+        ball.rotation = Math.random()*Math.PI
 
         line = new Phaser.Geom.Line(myTeam[indexBH].x, myTeam[indexBH].y, myTeam[indexBH].x, myTeam[indexBH].y);
         lineGraphics.strokeLineShape(line);
@@ -109,9 +110,10 @@
         fieldInPixel.h = background.displayHeight
         fieldInPixel.w = background.displayWidth
 
-
-        // Create a group to hold players
         playersGroup = this.physics.add.group();
+        ball = this.add.sprite(400, 300, 'ball');
+        ball.setScale(0.3)
+
 
         generateScene(this, playersGroup)
 
@@ -197,7 +199,7 @@
         const csvLineTeam1 = playersTeam1.map(player => `${player.x},${player.y}`).join(',');
         const csvLineTeam2 = playersTeam2.map(player => `${player.x},${player.y}`).join(',');
         const ballHolder = `r${indexBH+1}t1`
-        const passTo = `r${passage}t1`
+        const passTo = passage!=-1 ? `r${passage}t1` : passage
 
         return `${csvLineTeam1},${csvLineTeam2},${ballHolder},${passTo}`;
     }

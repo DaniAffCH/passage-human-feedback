@@ -6,6 +6,7 @@ import torch.utils
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
+import copy
 
 
 class Encoder(nn.Module):
@@ -13,7 +14,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         layers = list()
         assert latent_dims < input_size
-        step = (input_size - latent_dims)//depth if depth > 0 else 0
+        step = (input_size - latent_dims) // depth if depth > 0 else 0
         for i in range(1, depth):
             layers.append(nn.Linear(input_size - step *
                           (i-1), input_size - step*(i)))
@@ -21,12 +22,14 @@ class Encoder(nn.Module):
             layers.append(nn.BatchNorm1d(input_size - step*(i)))
             layers.append(nn.Dropout(p=0.1))
         layers.append(nn.Linear(input_size - step*(depth-1), latent_dims))
-        layers.append(nn.Sigmoid())
-
-        self.linear = nn.Sequential(*layers)
+        self.fc_mu = nn.Sequential(*copy.deepcopy(layers))
+        self.fc_logvar = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.linear(x)
+        mu = self.fc_mu(x)
+        logvar = self.fc_logvar(x)
+
+        return mu, logvar
 
 
 class Decoder(nn.Module):
@@ -56,12 +59,14 @@ class Decoder(nn.Module):
 
 
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, input_size, latent_dims, depth=3) -> None:
+    def __init__(self, input_size, latent_dims, depth=3):
         super(VariationalAutoencoder, self).__init__()
         self.encoder = Encoder(input_size, latent_dims, depth)
         self.decoder = Decoder(latent_dims, input_size, depth)
 
     def forward(self, x, team):
-        z = self.encoder(x)
-        print(z.shape, team.shape)
-        return self.decoder(z, team)
+        mu, logvar = self.encoder(x)
+        std = torch.exp(0.5 * logvar)
+        z = torch.randn_like(std) * std + mu
+
+        return self.decoder(z, team), mu, logvar

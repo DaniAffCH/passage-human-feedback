@@ -53,7 +53,7 @@ class MyDataset(Dataset):
         return {'positions': torch.tensor(values, dtype=torch.float32), 'team': torch.tensor(self.data.loc[idx, "team"], dtype=torch.long)}
 
 
-def train(autoencoder, train_data, test_data, epochs=30000):
+def train(autoencoder, train_data, test_data, epochs=1000):
     opt = torch.optim.Adam(autoencoder.parameters(), 1e-4)
     for epoch in range(epochs):
         losses = list()
@@ -65,25 +65,36 @@ def train(autoencoder, train_data, test_data, epochs=30000):
             t = d["team"].to(device)
             opt.zero_grad()
 
-            x_hat = autoencoder(x, t)
-            loss = torch.nn.functional.mse_loss(
-                x, x_hat)
+            x_hat, mu, logvar = autoencoder(x, t)
+            reconstruction_loss = torch.nn.functional.mse_loss(
+                x_hat, x, reduction='sum')
 
-            loss.backward()
+            kl_divergence_loss = -0.5 * \
+                torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+            total_loss = reconstruction_loss + kl_divergence_loss/len(d)
+
+            total_loss.backward()
             opt.step()
-            losses.append(loss.item())
+            losses.append(total_loss.item())
+
         autoencoder.eval()
         with torch.no_grad():
             for d in test_data:
                 x = d["positions"].to(device)
                 t = d["team"].to(device)
 
-                x_hat = autoencoder(x, t)
+                x_hat, mu, logvar = autoencoder(x, t)
 
-                loss = torch.nn.functional.mse_loss(
-                    x, x_hat)
+                reconstruction_loss = torch.nn.functional.mse_loss(
+                    x_hat, x, reduction='sum')
 
-                val_losses.append(loss.item())
+                kl_divergence_loss = -0.5 * \
+                    torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+                total_loss = reconstruction_loss + kl_divergence_loss
+
+                val_losses.append(total_loss.item())
 
         print("Epoch:", epoch, "train loss:", np.array(
             losses).mean(), "val_losses", np.array(val_losses).mean())
@@ -91,9 +102,9 @@ def train(autoencoder, train_data, test_data, epochs=30000):
 
 
 if __name__ == "__main__":
-    latent_dims = 7
+    latent_dims = 12
     # autoencoder = Test().to(device)
-    autoencoder = VariationalAutoencoder(14, latent_dims, 1).to(device)
+    autoencoder = VariationalAutoencoder(14, latent_dims, 3).to(device)
 
     # Load your CSV file into a PyTorch dataset
     dataset = MyDataset("processed.csv")
