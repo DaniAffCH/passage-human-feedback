@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Configuration Generator - Phaser</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+
+<script>
+    const config = {
+        type: Phaser.AUTO,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 0 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+
+    let fieldInPixel = {
+        x_min : 100,
+        y_min : 100,
+        x_max : 1250,
+        y_max : 850
+    }
+
+    const game = new Phaser.Game(config);
+    let line;
+    let playersGroup;
+    let circleGraphics;
+    let ballGraphics;
+    let lineGraphics;
+
+    let myTeam;
+    let indexBH;
+
+    async function saveCSVToServer(csvContent) {
+        try {
+            const response = await fetch('/savecsv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ csvContent }),
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                console.error('Error saving CSV file:', data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error.message);
+        }
+    }
+
+    function preload() {
+        this.load.image('background', 'field.png');
+        this.load.image('player1', 'robot1.png');
+        this.load.image('player2', 'robot2.png');
+    }
+
+    function generateScene(scene, playersGroup){
+
+        if (lineGraphics) lineGraphics.destroy();
+        if (circleGraphics) circleGraphics.destroy();
+        if (ballGraphics) ballGraphics.destroy();
+
+        createPlayers('team1');
+        createPlayers('team2');
+        
+        lineGraphics = scene.add.graphics();
+        circleGraphics = scene.add.graphics();
+        ballGraphics = scene.add.graphics();
+        ballGraphics.fillStyle(0xffffff);
+        lineGraphics.lineStyle(2, 0xffffff);
+
+        myTeam = playersGroup.getChildren().filter(player => player.team === 'team1');
+        indexBH = Math.floor(Math.random() * 6)
+
+        ballGraphics.fillCircle(myTeam[indexBH].x+Math.cos(myTeam[indexBH].rotation)*25, myTeam[indexBH].y+Math.sin(myTeam[indexBH].rotation)*25, 15);
+
+        line = new Phaser.Geom.Line(myTeam[indexBH].x, myTeam[indexBH].y, myTeam[indexBH].x, myTeam[indexBH].y);
+        lineGraphics.strokeLineShape(line);
+
+    }
+
+    function isInsideField(x,y){
+        return x >= fieldInPixel.x_min && x <= fieldInPixel.x_max && y > fieldInPixel.y_min && y < fieldInPixel.y_max
+    }
+
+    function create() {
+        // Create a sprite with the loaded PNG image
+        const background = this.add.image(0, 0, 'background').setOrigin(0);
+
+        background.displayHeight = window.innerHeight
+        background.scaleX = background.scaleY;
+
+        fieldInPixel.h = background.displayHeight
+        fieldInPixel.w = background.displayWidth
+
+
+        // Create a group to hold players
+        playersGroup = this.physics.add.group();
+
+        generateScene(this, playersGroup)
+
+        const button = this.add.text(
+            window.innerWidth*0.98, // X position
+            window.innerHeight*0.4, // Y position
+            'No\nPassage', // Text content
+            { fontSize: '100px', fill: '#fff', backgroundColor: '#f00', align: 'center'} // Text style
+        ).setOrigin(1, 0).setInteractive();
+
+        
+        // Set up input event for player selection
+        this.input.on('gameobjectdown', async (pointer, gameObject) => {
+            if (gameObject instanceof Phaser.GameObjects.Sprite){
+                if (!selectionCheck(gameObject))
+                    return;
+                await suggestPass(gameObject);
+            }
+            else if( gameObject instanceof Phaser.GameObjects.Text ){
+                await suggestNoPass();
+            }
+            playersGroup.clear(true, true);
+            this.input.setDefaultCursor('auto');
+            this.input.activePointer.cursorIndex = -1;
+            generateScene(this, playersGroup)
+        });
+
+        this.input.on('gameobjectover', function (pointer, gameObject) {
+            if (gameObject instanceof Phaser.GameObjects.Sprite || gameObject instanceof Phaser.GameObjects.Text) {
+                // Use the system's default pointer cursor
+                this.input.setDefaultCursor('pointer');
+                this.input.activePointer.cursorIndex = gameObject.index;
+            }
+        }, this);
+
+        this.input.on('gameobjectout', function () {
+            // Reset cursor to the default
+            this.input.setDefaultCursor('auto');
+            this.input.activePointer.cursorIndex = -1;
+        }, this);
+    }
+
+    function overlaps(x,y){
+        ret = false
+        playersGroup.getChildren().forEach(player => {
+            ret |= Math.sqrt(Math.pow(player.x - x, 2) + Math.pow(player.y - y,2)) < 40;
+        });
+        return ret;
+    }
+
+    function createPlayers(team) {
+        for (let i = 1; i <= 6; i++) {
+            img = team == "team1" ? "player1" : "player2"
+            do{
+                x = Math.random() * (fieldInPixel.x_max - fieldInPixel.x_min) + fieldInPixel.x_min;
+                y = Math.random() * (fieldInPixel.y_max - fieldInPixel.y_min) + fieldInPixel.y_min;
+            } while( overlaps(x,y) )
+
+            const player = playersGroup.create(x, y, img).setInteractive();
+            player.rotation = Math.random() * (2 * Math.PI);
+            player.setCircle(16, 0, 0);
+            player.team = team;
+            player.playerNumber = i;
+            player.setScale(0.3);
+        }
+    }
+
+    async function suggestPass(player) {
+        const csvContent = generateCSVContent(player.playerNumber); 
+        await saveCSVToServer(csvContent);
+    }
+
+    async function suggestNoPass() {
+        const csvContent = generateCSVContent(-1);
+        await saveCSVToServer(csvContent);
+    }
+
+    function generateCSVContent(passage) {
+        // Implement your logic to generate CSV content
+        const playersTeam1 = playersGroup.getChildren().filter(player => player.team === 'team1');
+        const playersTeam2 = playersGroup.getChildren().filter(player => player.team === 'team2');
+
+        const csvLineTeam1 = playersTeam1.map(player => `${player.x},${player.y}`).join(',');
+        const csvLineTeam2 = playersTeam2.map(player => `${player.x},${player.y}`).join(',');
+        const ballHolder = `r${indexBH+1}t1`
+        const passTo = `r${passage}t1`
+
+        return `${csvLineTeam1},${csvLineTeam2},${ballHolder},${passTo}`;
+    }
+
+    function selectionCheck(player) {
+        return player.team == "team1" && player != myTeam[indexBH]
+    }
+
+    function update() {
+        circleGraphics.clear();
+        lineGraphics.clear();
+
+        const pointer = this.input.activePointer;
+        let closeToPlayer = false
+        playersGroup.getChildren().forEach(player => {
+            const distance = Phaser.Math.Distance.Between(player.x, player.y, pointer.x, pointer.y);
+
+            const thresholdDistance = 30;
+
+            if (distance < thresholdDistance && selectionCheck(player)) {
+                circleGraphics.lineStyle(2, 0xffffff); 
+                circleGraphics.strokeCircle(player.x, player.y, 30); 
+                line.x2 = player.x;
+                line.y2 = player.y;
+                lineGraphics.lineStyle(2, 0xffffff);
+                lineGraphics.strokeLineShape(line);
+                closeToPlayer = true;
+            }
+        });
+
+        if( ! closeToPlayer && isInsideField(pointer.x, pointer.y)){
+            line.x2 = pointer.x;
+            line.y2 = pointer.y;
+            lineGraphics.lineStyle(2, 0xffffff);
+            lineGraphics.strokeLineShape(line);
+        }
+    }
+</script>
+
+</body>
+</html>

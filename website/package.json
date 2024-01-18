@@ -1,0 +1,25 @@
+{
+  "name": "passage_human_feedback",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "testPassage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaniAffCH/passage-human-feedback.git"
+  },
+  "keywords": [
+    "human-feedback"
+  ],
+  "author": "Daniele Affinita",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DaniAffCH/passage-human-feedback/issues"
+  },
+  "homepage": "https://github.com/DaniAffCH/passage-human-feedback#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
