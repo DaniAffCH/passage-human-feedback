@@ -1,56 +1,15 @@
 import torch
 from vae import VariationalAutoencoder
 
-import pandas as pd
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
 import numpy as np
+from dataset import MyDataset
+from torch.utils.data import DataLoader
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-
-class MyDataset(Dataset):
-    def __init__(self, csv_file):
-        self.data = pd.read_csv(csv_file)
-
-        # clean NaN
-        self.data = self.clean(self.data)
-
-    def clean(self, df):
-
-        min_value_x = df.filter(like='x_pos_').min().min()
-        max_value_x = df.filter(like='x_pos_').max().max()
-
-        min_value_y = df.filter(like='y_pos_').min().min()
-        max_value_y = df.filter(like='y_pos_').max().max()
-
-        for column in df.columns:
-            mask = df[column].isnull()
-            if column.startswith('x_pos_'):
-                df.loc[mask, column] = np.random.uniform(
-                    min_value_x, max_value_x, size=np.sum(mask))
-                df[column] = (df[column] - min_value_x)/max_value_x
-            elif column.startswith('y_pos_'):
-                df.loc[mask, column] = np.random.uniform(
-                    min_value_y, max_value_y, size=np.sum(mask))
-                df[column] = (df[column] - min_value_y)/max_value_y
-        return df
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        values = list()
-
-        for i in range(1, 8):
-            x_col = f'x_pos_{i}'
-            y_col = f'y_pos_{i}'
-
-            values.append(self.data.loc[idx, x_col])
-            values.append(self.data.loc[idx, y_col])
-
-        return {'positions': torch.tensor(values, dtype=torch.float32), 'team': torch.tensor(self.data.loc[idx, "team"], dtype=torch.long)}
 
 
 def train(autoencoder, train_data, test_data, epochs=1000):
@@ -61,11 +20,15 @@ def train(autoencoder, train_data, test_data, epochs=1000):
         autoencoder.train()
         for d in train_data:
 
-            x = d["positions"].to(device)
+            x = d["distribution"].to(device)
+            x = x.view(-1, x.size(1)**2)
             t = d["team"].to(device)
+            bp = d["ballPosition"].to(device)
+            bc = d["ballControl"].to(device)
+
             opt.zero_grad()
 
-            x_hat, mu, logvar = autoencoder(x, t)
+            x_hat, mu, logvar = autoencoder(x, t, bp, bc)
             reconstruction_loss = torch.nn.functional.mse_loss(
                 x_hat, x, reduction='sum')
 
@@ -81,10 +44,13 @@ def train(autoencoder, train_data, test_data, epochs=1000):
         autoencoder.eval()
         with torch.no_grad():
             for d in test_data:
-                x = d["positions"].to(device)
+                x = d["distribution"].to(device)
+                x = x.view(-1, x.size(1)**2)
                 t = d["team"].to(device)
+                bp = d["ballPosition"].to(device)
+                bc = d["ballControl"].to(device)
 
-                x_hat, mu, logvar = autoencoder(x, t)
+                x_hat, mu, logvar = autoencoder(x, t, bp, bc)
 
                 reconstruction_loss = torch.nn.functional.mse_loss(
                     x_hat, x, reduction='sum')
@@ -102,19 +68,21 @@ def train(autoencoder, train_data, test_data, epochs=1000):
 
 
 if __name__ == "__main__":
-    latent_dims = 12
-    # autoencoder = Test().to(device)
-    autoencoder = VariationalAutoencoder(14, latent_dims, 3).to(device)
+    latent_dims = 10
+    granularity = 0.01
+    batch_size = 8
+    autoencoder = VariationalAutoencoder(
+        int(1./granularity)**2, latent_dims, 1).to(device)
 
-    # Load your CSV file into a PyTorch dataset
-    dataset = MyDataset("processed.csv")
+    dataset = MyDataset(csv_file="merged.csv",
+                        distributionGranurality=granularity)
 
-    # Split the dataset into train and test sets
     train_dataset, test_dataset = train_test_split(
         dataset, test_size=0.2, random_state=42)
 
-    # Create dataloaders
-    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False)
 
     autoencoder = train(autoencoder, train_dataloader, test_dataloader)

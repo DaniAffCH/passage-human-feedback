@@ -40,7 +40,7 @@ class Decoder(nn.Module):
 
         step = (output_size - latent_dims)//depth if depth > 0 else 0
 
-        latent_dims += 1
+        latent_dims += 4  # 1 team, 2 ball pos, 1 ball control
 
         for i in range(1, depth):
             layers.append(nn.Linear(latent_dims + step *
@@ -53,8 +53,9 @@ class Decoder(nn.Module):
 
         self.linear = nn.Sequential(*layers)
 
-    def forward(self, z, team):
-        z = torch.cat((team.unsqueeze(1), z), dim=-1)
+    def forward(self, z, team, ballPosition, ballControl):
+        z = torch.cat(
+            (z, team.unsqueeze(1), ballPosition, ballControl.unsqueeze(1)), dim=-1)
         return self.linear(z)
 
 
@@ -64,9 +65,9 @@ class VariationalAutoencoder(nn.Module):
         self.encoder = Encoder(input_size, latent_dims, depth)
         self.decoder = Decoder(latent_dims, input_size, depth)
 
-    def forward(self, x, team):
+    def forward(self, x, team, ballPosition, ballControl):
         mu, logvar = self.encoder(x)
         std = torch.exp(0.5 * logvar)
         z = torch.randn_like(std) * std + mu
 
-        return self.decoder(z, team), mu, logvar
+        return self.decoder(z, team, ballPosition, ballControl), mu, logvar
