@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
-from utlis_ import Distribution
+from utils_ import Distribution
 
 field_start_x = 0
 field_end_x = 690
