@@ -132,12 +132,37 @@
                 update: update
             }
         };
-        
-        let fieldInPixel = {
-            x_min : 95,
-            y_min : 95,
-            x_max : 1265,
-            y_max : 870
+
+        class FieldCoordinates{
+            static fieldInPercentage = {
+                x_min : 0.07,
+                y_min : 0.1,
+                x_max : 0.93,
+                y_max : 0.9
+            };
+
+            static fieldDimensionsPixel = {
+                w: undefined,
+                h: undefined,
+            };
+
+            static setFieldDimension(width, height) {
+                this.fieldDimensionsPixel.w = width;
+                this.fieldDimensionsPixel.h = height;
+            }
+
+            static percentageToPixel(perc, isWidth){
+                return perc * (isWidth ? this.fieldDimensionsPixel.w : this.fieldDimensionsPixel.h)
+            }
+
+            static getFieldInPixels(){
+                return {
+                    x_min : this.percentageToPixel(this.fieldInPercentage.x_min, true),
+                    y_min : this.percentageToPixel(this.fieldInPercentage.y_min, false), 
+                    x_max : this.percentageToPixel(this.fieldInPercentage.x_max, true),
+                    y_max : this.percentageToPixel(this.fieldInPercentage.y_max, false),
+                };
+            }
         }
         
         const game = new Phaser.Game(config);
@@ -206,6 +231,7 @@
         }
         
         function isInsideField(x,y){
+            const fieldInPixel = FieldCoordinates.getFieldInPixels();
             return x >= fieldInPixel.x_min && x <= fieldInPixel.x_max && y > fieldInPixel.y_min && y < fieldInPixel.y_max
         }
         
@@ -215,8 +241,7 @@
             background.displayHeight = window.innerHeight
             background.scaleX = background.scaleY;
             
-            fieldInPixel.h = background.displayHeight
-            fieldInPixel.w = background.displayWidth
+            FieldCoordinates.setFieldDimension(background.displayWidth, background.displayHeight);
             
             playersGroup = this.physics.add.group();
             ball = this.add.sprite(400, 300, 'ball');
@@ -306,10 +331,11 @@
             const pdf = [0.000,0.04,0.1,0.16,0.2,0.3,0.2]    
             const n = distributionSampling(pdf)     
 
+            const fieldInPixel = FieldCoordinates.getFieldInPixels();
 
             img = team == "team1" ? "player1" : "player2"
             x = team == "team1" ? fieldInPixel.x_min : fieldInPixel.x_max;
-            y = Math.random() * (580 - 380) + 380;
+            y = FieldCoordinates.percentageToPixel(Math.random() * 0.2 + 0.4,false)
             const player = playersGroup.create(x, y, img).setInteractive();
             player.rotation = team == "team1" ? 0 : -Math.PI;
             player.setCircle(16, 0, 0);
@@ -355,6 +381,17 @@
             for( let i = playersTeam2.length; i<7; i++){
                 playersTeam2.push({ x: 0, y: 0 });
             }
+
+            playersTeam1 = playersTeam1.map(player => ({
+            x: player.x / FieldCoordinates.fieldDimensionsPixel.w,
+            y: player.y / FieldCoordinates.fieldDimensionsPixel.h,
+            }));
+
+            playersTeam2= playersTeam2.map(player => ({
+            x: player.x / FieldCoordinates.fieldDimensionsPixel.w,
+            y: player.y / FieldCoordinates.fieldDimensionsPixel.h,
+            }));
+
             
             const csvLineTeam1 = playersTeam1.map(player => `${player.x},${player.y}`).join(',');
             const csvLineTeam2 = playersTeam2.map(player => `${player.x},${player.y}`).join(',');
