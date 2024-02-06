@@ -1,8 +1,9 @@
-const csvHeader = "ip_sender,r1t1_x,r1t1_y,r2t1_x,r2t1_y,r3t1_x,r3t1_y,r4t1_x,r4t1_y,r5t1_x,r5t1_y,r6t1_x,r6t1_y,r1t2_x,r1t2_y,r2t2_x,r2t2_y,r3t2_x,r3t2_y,r4t2_x,r4t2_y,r5t2_x,r5t2_y,r6t2_x,r6t2_y,ball_holder,pass_to"
+const csvHeader = "ip_sender,roboCup_familiarity, soccer_familiarity, age, gender ,r1t1_x,r1t1_y,r2t1_x,r2t1_y,r3t1_x,r3t1_y,r4t1_x,r4t1_y,r5t1_x,r5t1_y,r6t1_x,r6t1_y,r1t2_x,r1t2_y,r2t2_x,r2t2_y,r3t2_x,r3t2_y,r4t2_x,r4t2_y,r5t2_x,r5t2_y,r6t2_x,r6t2_y,ball_holder,pass_to"
 const fileName = "data_v0.csv"
 
 const express = require('express');
 const fs = require('fs');
+const session = require('express-session');
 const bodyParser = require('body-parser');
 
 const app = express();
@@ -12,14 +13,30 @@ app.use(express.static('public', { 'extensions': ['css'] }));
 app.use(express.static('assets'));
 app.use(bodyParser.json());
 
-app.use((req, res, next) => {
-    const { 'user-robocup': userRobocup, 'user-soccer': userSoccer } = req.query;
-    const allowedRc = ["participated", "attended", "no"] 
-    const allowedSo = ["yes", "no"]
+app.use(session({
+    secret: 'robocupspqr', 
+    resave: false,
+    saveUninitialized: true
+}));
 
-    if (req.path === '/game' && (!allowedRc.includes(userRobocup) || !allowedSo.includes(userSoccer))) {
+
+app.use((req, res, next) => {
+    const { 'user-robocup': userRobocup, 'user-soccer': userSoccer, 'user-age': userAge, 'user-gender': userGender } = req.query;
+    const allowedRc = ["1", "2", "3", "4", "5"] 
+    const allowedSo = ["1", "2", "3", "4", "5"]
+    const allowedUa = ["<18", "18-22", "23-30", "31-40", "41-50", ">50"]
+    const allowedUg = ["m","f","n"]
+
+    if (req.path === '/game' && (!allowedRc.includes(userRobocup) || !allowedSo.includes(userSoccer) || !allowedUa.includes(userAge) || !allowedUg.includes(userGender))) {
         return res.redirect('/');
     }
+
+    if (userRobocup && userSoccer && userAge && userGender) {
+        req.session.userRobocup = userRobocup;
+        req.session.userSoccer = userSoccer;
+        req.session.userAge = userAge;
+        req.session.userGender = userGender;
+    }    
 
     next();
 });
@@ -42,21 +59,23 @@ app.post('/savecsv', (req, res) => {
         return res.status(400).json({ error: 'CSV content is required' });
     }
 
+    const row = `${clientIp},${req.session.userRobocup},${req.session.userSoccer},${req.session.userAge},${req.session.userGender},${csvContent}`
+
     // Check if the file exists
     fs.access(fileName, fs.constants.F_OK, (err) => {
         if (err) {
             // If the file doesn't exist, create a new one
-            fs.writeFile(fileName, csvHeader+"\n"+clientIp+","+csvContent, (writeErr) => {
+            fs.writeFile(fileName, csvHeader+"\n"+row, (writeErr) => {
                 if (writeErr) {
                     console.error(writeErr);
                     return res.status(500).json({ error: 'Error saving CSV file' });
                 }
-
+                
                 res.json({ success: true });
             });
         } else {
             // If the file exists, append the new content
-            fs.appendFile(fileName, '\n' +clientIp+","+ csvContent, (appendErr) => {
+            fs.appendFile(fileName, '\n'+row, (appendErr) => {
                 if (appendErr) {
                     console.error(appendErr);
                     return res.status(500).json({ error: 'Error appending to CSV file' });

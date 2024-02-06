@@ -1,0 +1,28 @@
+<html>
+
+<head>
+    
+<script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+<script>
+    async function test(){
+        const sess = new onnx.InferenceSession()
+        await sess.loadModel("./model.onnx")
+        const distribution = new onnx.Tensor(new Float32Array(100*100), "float32", [1,10000]) 
+        const team = new onnx.Tensor(new Float32Array(1), "float32", [1]) 
+        const bp = new onnx.Tensor(new Float32Array(2), "float32", [1,2]) 
+        const bc = new onnx.Tensor(new Float32Array(1), "float32", [1]) 
+
+        const output = await sess.run([distribution, team, bp, bc])
+        const outputTensor = outputMap.values().next().value
+        console.log(outputTensor)
+
+    }
+
+    test()
+
+</script>
+</head>
+<body>
+    
+</body>
+</html>

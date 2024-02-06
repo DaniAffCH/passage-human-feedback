@@ -68,6 +68,7 @@ class VariationalAutoencoder(nn.Module):
     def forward(self, x, team, ballPosition, ballControl):
         mu, logvar = self.encoder(x)
         std = torch.exp(0.5 * logvar)
+        print(std.dtype)
         z = torch.randn_like(std) * std + mu
 
         return self.decoder(z, team, ballPosition, ballControl), mu, logvar
