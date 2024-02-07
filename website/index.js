@@ -1,4 +1,4 @@
-const csvHeader = "ip_sender,roboCup_familiarity, soccer_familiarity, age, gender ,r1t1_x,r1t1_y,r2t1_x,r2t1_y,r3t1_x,r3t1_y,r4t1_x,r4t1_y,r5t1_x,r5t1_y,r6t1_x,r6t1_y,r7t1_x,r7t1_y,r1t2_x,r1t2_y,r2t2_x,r2t2_y,r3t2_x,r3t2_y,r4t2_x,r4t2_y,r5t2_x,r5t2_y,r6t2_x,r6t2_y,r7t2_x,r7t2_y,ball_holder,pass_to"
+const csvHeader = "ip_sender,timestamp,roboCup_familiarity, soccer_familiarity, age, gender ,r1t1_x,r1t1_y,r2t1_x,r2t1_y,r3t1_x,r3t1_y,r4t1_x,r4t1_y,r5t1_x,r5t1_y,r6t1_x,r6t1_y,r7t1_x,r7t1_y,r1t2_x,r1t2_y,r2t2_x,r2t2_y,r3t2_x,r3t2_y,r4t2_x,r4t2_y,r5t2_x,r5t2_y,r6t2_x,r6t2_y,r7t2_x,r7t2_y,ball_holder,pass_to"
 const fileName = "data_v0.csv"
 
 const express = require('express');
@@ -51,6 +51,21 @@ app.get('/game', (req, res) => {
 
 });
 
+function getCurrentDateTime() {
+  const now = new Date();
+
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const year = now.getFullYear();
+
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  const formattedDate = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  return formattedDate;
+}
+
 app.post('/savecsv', (req, res) => {
     const { csvContent } = req.body;
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -58,8 +73,8 @@ app.post('/savecsv', (req, res) => {
     if (!csvContent) {
         return res.status(400).json({ error: 'CSV content is required' });
     }
-
-    const row = `${clientIp},${req.session.userRobocup},${req.session.userSoccer},${req.session.userAge},${req.session.userGender},${csvContent}`
+    const dt = getCurrentDateTime()
+    const row = `${clientIp},${dt},${req.session.userRobocup},${req.session.userSoccer},${req.session.userAge},${req.session.userGender},${csvContent}`
 
     // Check if the file exists
     fs.access(fileName, fs.constants.F_OK, (err) => {
