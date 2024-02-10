@@ -51,6 +51,10 @@ app.get('/game', (req, res) => {
 
 });
 
+app.get('/terms', (req, res) => {
+  res.sendFile(__dirname + '/terms.html');
+});
+
 function getCurrentDateTime() {
   const now = new Date();
 
