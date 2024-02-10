@@ -39,7 +39,8 @@
             flex-direction: column; /* Stack items vertically */
             justify-content: center;
             align-items: center;
-            text-align: center; /
+            text-align: center; 
+            font-size: large;
         }
 
         .internal-instructions-div ul{
@@ -93,9 +94,12 @@
         <div class="internal-instructions-div">
             
             <p> Objective:
-                You are a player on the Red Team, tasked with scoring in the goal on your right side.<br>The data collected will be used to train real robots, so choose wisely!
+                You are a player on the Red Team, tasked with scoring in the goal on your right side.<br>The data collected will be used to train real robots, so choose wisely! 
+                <br>
+                You can carry out as many scenes as you want, there is no limit. Every provided answer will be logged.
                 <br>
                 <br>
+
                 Instructions:
                 <br>
 <ul>
@@ -219,7 +223,7 @@
             lineGraphics.lineStyle(2, 0xffffff);
             
             myTeam = playersGroup.getChildren().filter(player => player.team === 'team1');
-            indexBH = Math.floor(Math.random() * myTeam.length)
+            indexBH = Math.floor(Math.random() * (myTeam.length-1)) + 1
             
             ball.x = myTeam[indexBH].x+Math.cos(myTeam[indexBH].rotation)*35
             ball.y = myTeam[indexBH].y+Math.sin(myTeam[indexBH].rotation)*35
@@ -257,17 +261,19 @@
             {
                 fontSize: '45px',
                 fill: '#fff',
-                backgroundColor: '#822433', 
+                backgroundColor: '#4CAF50',
                 align: 'center',
                 padding: {
                     x: 20,
                     y: 10,
                 },
-                borderRadius: '55px', // Adds rounded corners
-                fontFamily: 'Arial, sans-serif', // You can change the font family
+                borderRadius: '20px',
+                fontFamily: 'Arial, sans-serif',
                 fontStyle: 'bold',
-                wordWrap: { width: 500 }, // Wraps text after 300 pixels
-            } // Text style
+                wordWrap: { width: 500 },
+                stroke: '#000', 
+                strokeThickness: 6,
+            }
             ).setOrigin(1, 0).setInteractive();
             
             
